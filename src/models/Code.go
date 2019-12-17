@@ -3,6 +3,9 @@ package models
 import (
 	"fmt"
 	"github.com/jinzhu/gorm"
+	"io/ioutil"
+	"os"
+	"strconv"
 	u "utils"
 )
 
@@ -17,17 +20,17 @@ UserId   uint   `json:"user_id"` //The user that this contact belongs to
  This struct function validate the required parameters sent through the http request body
 returns message and true if the requirement is met
 */
-func (contact *Code) Validate() (map[string] interface{}, bool) {
+func (code *Code) Validate() (map[string] interface{}, bool) {
 
-	if contact.Source == "" {
+	if code.Source == "" {
 		return u.Message(false, "Code name should be on the payload"), false
 	}
 
-	if contact.Language == "" {
+	if code.Language == "" {
 		return u.Message(false, "Language number should be on the payload"), false
 	}
 
-	if contact.UserId <= 0 {
+	if code.UserId <= 0 {
 		return u.Message(false, "User is not recognized"), false
 	}
 
@@ -35,37 +38,60 @@ func (contact *Code) Validate() (map[string] interface{}, bool) {
 	return u.Message(true, "success"), true
 }
 
-func (contact *Code) Create() (map[string] interface{}) {
+func (code *Code) Create() map[string] interface{} {
 
-	if resp, ok := contact.Validate(); !ok {
+	if resp, ok := code.Validate(); !ok {
 		return resp
 	}
 
-	GetDB().Create(contact)
+	GetDB().Create(code)
 
 	resp := u.Message(true, "success")
-	resp["contact"] = contact
+	resp["code"] = code
 	return resp
 }
 
-func GetContact(id uint) (*Code) {
+func (code *Code) SaveToFile(nameChannel *chan string){
+	var ext string
+	switch code.Language {
+	case "C": ext =".c"
+	case "CPP": ext = ".cpp"
+	case "PYTH": ext = ".py"
+	case "JAVA": ext=".java"
+	}
+	os.Mkdir("codes",0755)
+	f,err:=ioutil.TempFile("codes",strconv.Itoa(int(code.UserId))+"*"+ext)
+	if err!=nil {
+		panic(err.Error())
+	}
+	f.WriteString(code.Source)
+	*nameChannel<-f.Name()
+}
 
-	contact := &Code{}
-	err := GetDB().Table("contacts").Where("id = ?", id).First(contact).Error
+func (code *Code) Run() (string,bool){
+	nameChannel := make(chan string)
+	go code.SaveToFile(&nameChannel)
+	fname := <-nameChannel
+	return RunSpecificCode(code,fname)
+}
+
+func GetCode(id uint) *Code {
+
+	code := &Code{}
+	err := GetDB().Table("codes").Where("id = ?", id).First(code).Error
 	if err != nil {
 		return nil
 	}
-	return contact
+	return code
 }
 
-func GetContacts(user uint) ([]*Code) {
+func GetCodes(user uint) []*Code {
 
-	contacts := make([]*Code, 0)
-	err := GetDB().Table("codes").Where("user_id = ?", user).Find(&contacts).Error
+	codes := make([]*Code, 0)
+	err := GetDB().Table("codes").Where("user_id = ?", user).Find(&codes).Error
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
-
-	return contacts
+	return codes
 }

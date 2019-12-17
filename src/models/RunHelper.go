@@ -2,53 +2,68 @@ package models
 
 import (
 	"bytes"
-	"fmt"
-	"log"
 	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
-func RunSpecificCode(code *Code){
-	if code.Language == "C" {
-		exec.Command("gcc", "sampleC.c", "-o", "sampleC")
-		cmd := exec.Command("./sampleC")
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		err := cmd.Run()
-		if err != nil {
-			log.Fatal(err)
+func RunSpecificCode(code *Code,fname string) (string,bool){
+	var resp string
+	retCode:=true
+	if code.Language == "C" || code.Language=="CPP" {
+		var cFamily string
+		if code.Language=="C"{
+			cFamily="gcc"
+		} else {
+			cFamily = "g++"
 		}
-		fmt.Printf("%q\n", out.String())
-	}
-	if code.Language == "CPP" {
-		exec.Command("g++", "sampleCPP.cpp", "-o", "sampleCPP")
-		cmd := exec.Command("./sampleCPP")
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		err := cmd.Run()
-		if err != nil {
-			log.Fatal(err)
+		cmd1:=exec.Command(cFamily, fname, "-o", "sampleC")
+		_,err1:=cmd1.Output()
+		if err1 != nil{
+			resp = err1.Error()
+			retCode=false
+		} else {
+			cmd := exec.Command("./sampleC")
+			var out bytes.Buffer
+			cmd.Stdout = &out
+			err := cmd.Run()
+			if err != nil {
+				resp=err.Error()
+				retCode=false
+			} else {
+				resp = out.String()
+			}
 		}
-		fmt.Printf("%q\n", out.String())
 	}
 	if code.Language == "JAVA" {
-		exec.Command("javac", "sampleJAVA.java")
-		cmd := exec.Command("java","sampleJAVA")
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		err := cmd.Run()
-		if err != nil {
-			log.Fatal(err)
+		cmd1:=exec.Command("javac", fname)
+		_,err1:=cmd1.Output()
+		if err1 != nil{
+			resp = err1.Error()
+			retCode=false
+		}else {
+
+			cmd := exec.Command("java", strings.TrimSuffix(fname, filepath.Ext(fname)))
+			var out bytes.Buffer
+			cmd.Stdout = &out
+			err := cmd.Run()
+			if err != nil {
+				retCode = false
+				resp=err.Error()
+			}
+			resp = out.String()
 		}
-		fmt.Printf("%q\n", out.String())
 	}
 	if code.Language == "PYTH" {
-		cmd := exec.Command("python3","samplePyth.py")
+		cmd := exec.Command("python3",fname)
 		var out bytes.Buffer
 		cmd.Stdout = &out
 		err := cmd.Run()
 		if err != nil {
-			log.Fatal(err)
+			resp=err.Error()
+			retCode = false
 		}
-		fmt.Printf("%q\n", out.String())
+		resp=out.String()
 	}
+	return resp,retCode
 }
